@@ -3,6 +3,8 @@ using System.Drawing;
 using System.Drawing.Drawing2D;
 using System.Drawing.Imaging;
 using System.IO;
+using System.Linq;
+using System.Threading.Tasks;
 
 namespace ImageResizer
 {
@@ -35,6 +37,44 @@ namespace ImageResizer
         /// <param name="sourcePath">圖片來源目錄路徑</param>
         /// <param name="destPath">產生圖片目的目錄路徑</param>
         /// <param name="scale">縮放比例</param>
+        public async Task ResizeImagesAsync(string sourcePath, string destPath, double scale)
+        {
+            var allFiles = FindImages(sourcePath);
+            var lsTask = new List<Task>();
+            foreach (var filePath in allFiles)
+            {
+               var task = Task.Run(async () => {
+                    var imgPhoto = await Task.Run(() =>
+                    {
+                        Image imgAsync = Image.FromFile(filePath);
+                        return imgAsync;
+                    });
+
+                    string imgName = Path.GetFileNameWithoutExtension(filePath);
+
+                    int sourceWidth = imgPhoto.Width;
+                    int sourceHeight = imgPhoto.Height;
+
+                    int destionatonWidth = (int)(sourceWidth * scale);
+                    int destionatonHeight = (int)(sourceHeight * scale);
+
+                    Bitmap processedImage = processBitmap((Bitmap)imgPhoto,
+                        sourceWidth, sourceHeight,
+                        destionatonWidth, destionatonHeight);
+
+                    string destFile = Path.Combine(destPath, imgName + ".jpg");
+
+                    await Task.Run(() => {
+                        processedImage.Save(destFile, ImageFormat.Jpeg);
+                    });
+                });
+
+                lsTask.Add(task);
+            }
+
+            await Task.WhenAll(lsTask);            
+        }
+
         public void ResizeImages(string sourcePath, string destPath, double scale)
         {
             var allFiles = FindImages(sourcePath);
@@ -55,8 +95,15 @@ namespace ImageResizer
 
                 string destFile = Path.Combine(destPath, imgName + ".jpg");
                 processedImage.Save(destFile, ImageFormat.Jpeg);
+
+
             }
+
         }
+
+
+
+
 
         /// <summary>
         /// 找出指定目錄下的圖片
